@@ -1,0 +1,5 @@
+work/
+_site/
+.DS_Store
+outputs/*
+!outputs/simpleraise-planner.html
