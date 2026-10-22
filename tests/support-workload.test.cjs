@@ -21,3 +21,37 @@ test('invalid demo window is rejected',()=>{assert.throws(()=>calculate([row],[3
 test('preparation precedes outreach and product readiness precedes the season',()=>{const r=run();const actions=r.months.flatMap(m=>m.actions);assert.equal(actions.length,4);const action=kind=>actions.find(a=>a.kind===kind);assert.equal(action('prepare').date,action('outreach').date-14*86400000);assert.equal(action('approve').date,action('outreach').date-7*86400000);assert.equal(action('product').date,Date.parse('2027-03-04T00:00:00Z'));assert.equal(action('product').owners,'Jose, Allan & the product team');assert.equal(action('prepare').owners,'Laura, Allan & Mike');for(const a of actions){assert(![0,6].includes(new Date(a.date).getUTCDay()));const month=r.months.find(m=>m.actions.includes(a));assert.equal(month.key,new Date(a.date).toISOString().slice(0,7));}});
 test('editable lead times move preparation earlier without changing workload',()=>{const args=[[row],[3,2,100,30,0],6,60,15,2,4,45,true,15,7,undefined,2,4,7];const a=calculate(...args),b=calculate(...args,4,2,6);assert.equal(a.totals.emails,b.totals.emails);assert.equal(a.totals.tickets,b.totals.tickets);assert(b.months.flatMap(m=>m.actions).find(a=>a.kind==='prepare').date<a.months.flatMap(m=>m.actions).find(a=>a.kind==='prepare').date);assert.throws(()=>calculate(...args,1,2,4),/earlier than approval/);});
 test('monthly account and financial-success targets reconcile to annual goals',()=>{const r=run(undefined,3,[{...row,count:20},{...row,name:'Winter',count:5,start:'2027-01-15',end:'2027-04-30'}]);for(const kind of ['accounts','successful'])assert.equal(r.months.reduce((sum,m)=>sum+m[kind],0),r.totals[kind]);assert.equal(r.totals.successful,25);assert.equal(r.months.find(m=>m.key==='2027-05').successful,20);assert.equal(r.months.find(m=>m.key==='2027-04').successful,5);assert.equal(r.months.flatMap(m=>m.actions).length,8);});
+test('Band outreach follows all four dates without multiplying annual targets',()=>{
+ const band={...row,name:'Band',start:'2027-07-15',end:'2028-07-14',outreach:[{date:'2027-06-01',purpose:'Marching'},{date:'2027-12-01',purpose:'Spring'},{date:'2028-01-01',purpose:'January'},{date:'2028-03-15',purpose:'Banquet'}]};
+ const r=run(undefined,3,[band]);reconcile(r);
+ assert.equal(r.totals.contacts,20);assert.equal(r.totals.emails,80);
+ assert.equal(r.months.reduce((sum,m)=>sum+m.emails,0),80);
+ const dates=r.months.flatMap(m=>m.actions).filter(a=>a.kind==='outreach').map(a=>new Date(a.date).toISOString().slice(0,10));
+ assert.deepEqual(Array.from(dates),band.outreach.map(o=>o.date));
+ for(const key of ['2027-06','2027-12','2028-01','2028-03'])assert.equal(r.months.find(m=>m.key===key).contacts,5);
+ assert.equal(r.months.at(-1).key,'2028-07');assert.equal(r.months.at(-1).successful,1);
+ const combined=run(undefined,3,[band,row]);reconcile(combined);
+ for(const m of combined.months)assert.equal(m.emails,m.audiences.reduce((sum,a)=>sum+a.emails,0));
+});
+test('updated defaults render and retain the original revenue mix',()=>{
+ const elements=new Map();
+ for(const match of html.matchAll(/<(?:input|select)\b[^>]*\bid="([^"]+)"[^>]*>/g)){
+  const tag=match[0];let value=tag.match(/\bvalue="([^"]*)"/)?.[1]||'';
+  if(tag.startsWith('<select')){const options=html.slice(match.index+tag.length).split('</select>')[0];value=(options.match(/<option value="([^"]+)" selected/)||options.match(/<option value="([^"]+)"/))[1];}
+  elements.set(match[1],{value,innerHTML:'',textContent:''});
+ }
+ const document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',style:{}});return elements.get(id)},addEventListener(){},querySelectorAll(){return []}};
+ const context=vm.createContext({document});vm.runInContext(script,context);
+ assert.equal(elements.get('seasonError').textContent,'');
+ const rows=vm.runInContext('segments',context);
+ const band=rows.find(s=>s.name==='Band'),choir=rows.find(s=>s.name==='Choir');
+ assert.equal(band.count,0);assert.equal(band.end,'2028-07-14');
+ assert.equal(choir.start,'2027-01-01');assert.equal(choir.end,'2027-12-31');
+ assert.equal(rows.find(s=>s.name==='Marching band').start,'2027-07-15');
+ assert.equal(rows.find(s=>s.name==='Winter guard').end,'2028-04-15');
+ assert.equal(rows.find(s=>s.name==='Concert / symphonic band').end,'2027-05-30');
+ assert.equal(rows.reduce((n,s)=>n+s.count,0),188);
+ assert.equal(rows.reduce((n,s)=>n+s.count*s.rate,4228000),10000000);
+ band.count=4;vm.runInContext('render()',context);assert.equal(elements.get('seasonError').textContent,'');
+ assert.match(elements.get('seasonTimeline').innerHTML,/July 2028/);
+});
