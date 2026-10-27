@@ -53,5 +53,35 @@ test('updated defaults render and retain the original revenue mix',()=>{
  assert.equal(rows.reduce((n,s)=>n+s.count,0),188);
  assert.equal(rows.reduce((n,s)=>n+s.count*s.rate,4228000),10000000);
  band.count=4;vm.runInContext('render()',context);assert.equal(elements.get('seasonError').textContent,'');
- assert.match(elements.get('seasonTimeline').innerHTML,/July 2028/);
+ assert.match(elements.get('executionMonths').innerHTML,/July 2028/);
+});
+
+test('prospecting calendars reconcile signup targets and keep three weekly emails ahead of signup',()=>{
+ const source=script.slice(script.indexOf('function prospectCampaigns('),script.indexOf('function renderProspecting('));
+ const context=vm.createContext({});vm.runInContext(source,context);
+ const defaults=vm.runInNewContext(script.slice(script.indexOf('const segments='),script.indexOf("const $="))+';segments');
+ const seasonDefaults=[['2027-07-15','2027-11-30'],['2027-08-01','2027-11-30'],['2027-11-01','2028-04-15'],['2027-01-01','2027-05-30'],['2027-01-01','2027-12-31']];
+ defaults.forEach((r,i)=>{if(i<5){[r.start,r.end]=seasonDefaults[i];if(i===4)r.outreach=[{date:'2026-12-01',purpose:'Spring'},{date:'2027-03-15',purpose:'Late-year'},{date:'2027-08-01',purpose:'Fall'}];}});
+ const rows=context.prospectCampaigns(defaults,3,2,30);
+ assert.equal(rows.reduce((n,r)=>n+r.accounts,0),564);assert.equal(rows.reduce((n,r)=>n+r.contacts,0),3760);
+ assert.equal(rows[0].campaigns[0].dates[0],'2027-06-10');assert.equal(rows[0].campaigns[0].deadline,'2027-07-01');
+ assert.equal(rows[1].campaigns[0].deadline,'2027-07-16');assert.equal(rows[3].campaigns[0].dates[0],'2026-11-27');
+ assert.equal(rows[4].campaigns[2].dates[0],'2027-08-02');
+ for(const row of rows){assert.equal(row.campaigns.reduce((n,c)=>n+c.accounts,0),row.accounts);assert.equal(row.campaigns.reduce((n,c)=>n+c.contacts,0),row.contacts);for(const c of row.campaigns){assert.equal(c.dates.length,3);for(let i=1;i<3;i++)assert.equal(Date.parse(c.dates[i])-Date.parse(c.dates[i-1]),7*86400000);assert.equal(Date.parse(c.deadline)-Date.parse(c.dates[2]),7*86400000);assert.equal(context.prospectEmails(row.name,c.purpose).length,3);}}
+ const adjusted=context.prospectCampaigns(defaults,4,2,30);assert.equal(adjusted.reduce((n,r)=>n+r.accounts,0),752);
+ assert.throws(()=>context.prospectCampaigns(defaults,3,2,0),/valid sales funnel/);
+ assert.equal(context.prospectCampaigns(defaults.map(r=>({...r,count:0})),3,2,30).length,0);
+});
+
+
+test('monthly and program views share one set of dated acquisition events',()=>{
+ const source=script.slice(script.indexOf('function executionEvents('),script.indexOf('function setExecutionView('));
+ const build=vm.runInNewContext(source+';executionEvents');
+ const rows=[{name:'Band',start:'2027-07-15',end:'2027-11-30',campaigns:[{purpose:'Fall',dates:['2027-06-10','2027-06-17','2027-06-24'],deadline:'2027-07-01',accounts:282,contacts:1880}]},{name:'Guard',start:'2027-08-01',end:'2027-11-30',campaigns:[{purpose:'Fall',dates:['2027-06-25','2027-07-02','2027-07-09'],deadline:'2027-07-16',accounts:81,contacts:540}]}];
+ const events=build(rows);
+ assert.equal(events.reduce((n,e)=>n+e.goal,0),363);assert.equal(events.reduce((n,e)=>n+e.contacts,0),2420);
+ const june=events.filter(e=>e.date.startsWith('2027-06'));assert.equal(june.filter(e=>e.kind==='email').length,4);
+ for(let i=0;i<rows.length;i++){const program=events.filter(e=>e.program===i);assert.equal(program.filter(e=>e.kind==='signup').length,1);assert.equal(program.filter(e=>e.kind==='email').length,3);assert.equal(program.reduce((n,e)=>n+e.goal,0),rows[i].campaigns[0].accounts);}
+ const shifted=build(rows,3,2,5);assert(shifted.find(e=>e.kind==='prepare').date<events.find(e=>e.kind==='prepare').date);
+ assert.throws(()=>build(rows,1,2),/Preparation/);
 });
