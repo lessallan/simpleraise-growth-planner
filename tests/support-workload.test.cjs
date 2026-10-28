@@ -43,6 +43,7 @@ test('updated defaults render and retain the original revenue mix',()=>{
  const document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',style:{}});return elements.get(id)},addEventListener(){},querySelectorAll(){return []}};
  const context=vm.createContext({document});vm.runInContext(script,context);
  assert.equal(elements.get('seasonError').textContent,'');
+ for(const id of ['executionMonths','prospectPrograms']){assert.match(elements.get(id).innerHTML,/View email|email-draft/);assert.match(elements.get(id).innerHTML,/webinar link/);assert.match(elements.get(id).innerHTML,/Minimum 1,880 initial emails|Minimum 460 initial emails/);assert.doesNotMatch(elements.get(id).innerHTML,/Prepare contact|Approve list|Review season readiness/);}
  const rows=vm.runInContext('segments',context);
  const band=rows.find(s=>s.name==='Band'),choir=rows.find(s=>s.name==='Choir');
  assert.equal(band.count,0);assert.equal(band.end,'2028-07-14');
@@ -53,7 +54,7 @@ test('updated defaults render and retain the original revenue mix',()=>{
  assert.equal(rows.reduce((n,s)=>n+s.count,0),188);
  assert.equal(rows.reduce((n,s)=>n+s.count*s.rate,4228000),10000000);
  band.count=4;vm.runInContext('render()',context);assert.equal(elements.get('seasonError').textContent,'');
- assert.match(elements.get('executionMonths').innerHTML,/July 2028/);
+ assert.match(elements.get('executionMonths').innerHTML,/March 2028/);
 });
 
 test('prospecting calendars reconcile signup targets and keep three weekly emails ahead of signup',()=>{
@@ -82,6 +83,9 @@ test('monthly and program views share one set of dated acquisition events',()=>{
  assert.equal(events.reduce((n,e)=>n+e.goal,0),363);assert.equal(events.reduce((n,e)=>n+e.contacts,0),2420);
  const june=events.filter(e=>e.date.startsWith('2027-06'));assert.equal(june.filter(e=>e.kind==='email').length,4);
  for(let i=0;i<rows.length;i++){const program=events.filter(e=>e.program===i);assert.equal(program.filter(e=>e.kind==='signup').length,1);assert.equal(program.filter(e=>e.kind==='email').length,3);assert.equal(program.reduce((n,e)=>n+e.goal,0),rows[i].campaigns[0].accounts);}
- const shifted=build(rows,3,2,5);assert(shifted.find(e=>e.kind==='prepare').date<events.find(e=>e.kind==='prepare').date);
- assert.throws(()=>build(rows,1,2),/Preparation/);
+ assert(!events.some(e=>['prepare','approve','product','active','end'].includes(e.kind)));
+ assert.equal(events.reduce((n,e)=>n+(e.minimum||0),0),2420);
+ assert.equal(events.reduce((n,e)=>n+(e.sendTarget||0),0),7260);
+ for(let i=0;i<rows.length;i++){const webinars=events.filter(e=>e.program===i&&e.kind==='webinar');assert.equal(webinars.length,3);for(let j=1;j<webinars.length;j++)assert.equal(Date.parse(webinars[j].date)-Date.parse(webinars[j-1].date),7*86400000);assert(webinars.at(-1).date<=rows[i].campaigns[0].deadline);}
+
 });
