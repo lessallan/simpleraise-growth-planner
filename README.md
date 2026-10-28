@@ -34,8 +34,8 @@ Drafts do not send email. Replace the signup and webinar link placeholders and r
 before use. Navigation preserves in-page inputs; reloading restores defaults.
 The old #prospecting link opens the execution section in By program view.
 
-Email volume minimums count one first email per targeted organization. Follow-ups
-are conditional on remaining eligible prospects, so their displayed targets are
-upper bounds rather than guaranteed minimum sends. Each campaign offers at least
+Acquisition reach minimums count prospects receiving the main email blast.
+Emails 2 and 3 go only to prospects who have not signed up, excluding opt-outs
+and pausing for replies. Follow-up recipient counts are intentionally not shown. Each campaign offers at least
 one proposed webinar every seven days from shortly after first outreach through
 the signup deadline. Session times and registration URLs are not yet confirmed.

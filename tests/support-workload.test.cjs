@@ -43,7 +43,7 @@ test('updated defaults render and retain the original revenue mix',()=>{
  const document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',style:{}});return elements.get(id)},addEventListener(){},querySelectorAll(){return []}};
  const context=vm.createContext({document});vm.runInContext(script,context);
  assert.equal(elements.get('seasonError').textContent,'');
- for(const id of ['executionMonths','prospectPrograms']){assert.match(elements.get(id).innerHTML,/View email|email-draft/);assert.match(elements.get(id).innerHTML,/webinar link/);assert.match(elements.get(id).innerHTML,/Minimum 1,880 initial emails|Minimum 460 initial emails/);assert.doesNotMatch(elements.get(id).innerHTML,/Prepare contact|Approve list|Review season readiness/);}
+ for(const id of ['executionMonths','prospectPrograms']){assert.match(elements.get(id).innerHTML,/View email|email-draft/);assert.match(elements.get(id).innerHTML,/webinar link/);assert.match(elements.get(id).innerHTML,/Reach at least 1,880 prospective new customers|Reach at least 460 prospective new customers/);assert.doesNotMatch(elements.get(id).innerHTML,/Prepare contact|Approve list|Review season readiness/);}
  const rows=vm.runInContext('segments',context);
  const band=rows.find(s=>s.name==='Band'),choir=rows.find(s=>s.name==='Choir');
  assert.equal(band.count,0);assert.equal(band.end,'2028-07-14');
