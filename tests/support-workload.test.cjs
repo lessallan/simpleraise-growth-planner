@@ -43,7 +43,7 @@ test('updated defaults render and retain the original revenue mix',()=>{
  const document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',style:{}});return elements.get(id)},addEventListener(){},querySelectorAll(){return []}};
  const context=vm.createContext({document});vm.runInContext(script,context);
  assert.equal(elements.get('seasonError').textContent,'');
- for(const id of ['executionMonths','prospectPrograms']){assert.match(elements.get(id).innerHTML,/View email|email-draft/);assert.match(elements.get(id).innerHTML,/webinar link/);assert.match(elements.get(id).innerHTML,/Reach at least 1,880 prospective new customers|Reach at least 460 prospective new customers/);assert.doesNotMatch(elements.get(id).innerHTML,/Prepare contact|Approve list|Review season readiness/);}
+ for(const id of ['executionMonths','prospectPrograms']){assert.match(elements.get(id).innerHTML,/Email &amp; webinar blockouts/);assert.match(elements.get(id).innerHTML,/Originally Nov 27, 2026/);assert.match(elements.get(id).innerHTML,/View email|email-draft/);assert.match(elements.get(id).innerHTML,/webinar link/);assert.match(elements.get(id).innerHTML,/Reach at least 1,880 prospective new customers|Reach at least 460 prospective new customers/);assert.doesNotMatch(elements.get(id).innerHTML,/Prepare contact|Approve list|Review season readiness/);}
  const rows=vm.runInContext('segments',context);
  const band=rows.find(s=>s.name==='Band'),choir=rows.find(s=>s.name==='Choir');
  assert.equal(band.count,0);assert.equal(band.end,'2028-07-14');
@@ -66,7 +66,7 @@ test('prospecting calendars reconcile signup targets and keep three weekly email
  const rows=context.prospectCampaigns(defaults,3,2,30);
  assert.equal(rows.reduce((n,r)=>n+r.accounts,0),564);assert.equal(rows.reduce((n,r)=>n+r.contacts,0),3760);
  assert.equal(rows[0].campaigns[0].dates[0],'2027-06-10');assert.equal(rows[0].campaigns[0].deadline,'2027-07-01');
- assert.equal(rows[1].campaigns[0].deadline,'2027-07-16');assert.equal(rows[3].campaigns[0].dates[0],'2026-11-27');
+ assert.equal(rows[1].campaigns[0].deadline,'2027-07-16');assert.equal(rows[3].campaigns[0].dates[0],'2026-11-30');
  assert.equal(rows[4].campaigns[2].dates[0],'2027-08-02');
  for(const row of rows){assert.equal(row.campaigns.reduce((n,c)=>n+c.accounts,0),row.accounts);assert.equal(row.campaigns.reduce((n,c)=>n+c.contacts,0),row.contacts);for(const c of row.campaigns){assert.equal(c.dates.length,3);for(let i=1;i<3;i++)assert.equal(Date.parse(c.dates[i])-Date.parse(c.dates[i-1]),7*86400000);assert.equal(Date.parse(c.deadline)-Date.parse(c.dates[2]),7*86400000);assert.equal(context.prospectEmails(row.name,c.purpose).length,3);}}
  const adjusted=context.prospectCampaigns(defaults,4,2,30);assert.equal(adjusted.reduce((n,r)=>n+r.accounts,0),752);
@@ -77,7 +77,8 @@ test('prospecting calendars reconcile signup targets and keep three weekly email
 
 test('monthly and program views share one set of dated acquisition events',()=>{
  const source=script.slice(script.indexOf('function executionEvents('),script.indexOf('function setExecutionView('));
- const build=vm.runInNewContext(source+';executionEvents');
+ const helpers=script.slice(script.indexOf('function holidayBlockouts('),script.indexOf('function prospectEmails('));
+ const build=vm.runInNewContext(helpers+source+';executionEvents');
  const rows=[{name:'Band',start:'2027-07-15',end:'2027-11-30',campaigns:[{purpose:'Fall',dates:['2027-06-10','2027-06-17','2027-06-24'],deadline:'2027-07-01',accounts:282,contacts:1880}]},{name:'Guard',start:'2027-08-01',end:'2027-11-30',campaigns:[{purpose:'Fall',dates:['2027-06-25','2027-07-02','2027-07-09'],deadline:'2027-07-16',accounts:81,contacts:540}]}];
  const events=build(rows);
  assert.equal(events.reduce((n,e)=>n+e.goal,0),363);assert.equal(events.reduce((n,e)=>n+e.contacts,0),2420);
@@ -88,4 +89,21 @@ test('monthly and program views share one set of dated acquisition events',()=>{
  assert.equal(events.reduce((n,e)=>n+(e.sendTarget||0),0),7260);
  for(let i=0;i<rows.length;i++){const webinars=events.filter(e=>e.program===i&&e.kind==='webinar');assert.equal(webinars.length,3);for(let j=1;j<webinars.length;j++)assert.equal(Date.parse(webinars[j].date)-Date.parse(webinars[j-1].date),7*86400000);assert(webinars.at(-1).date<=rows[i].campaigns[0].deadline);}
 
+});
+
+test('holiday blockouts shift emails with spacing, preserve targets and exclude webinars',()=>{
+ const source=script.slice(script.indexOf('function prospectCampaigns('),script.indexOf('function renderProspecting('));
+ const context=vm.createContext({});vm.runInContext(source,context);
+ const input=[{name:'Choir',count:15,start:'2027-01-01',end:'2027-12-31',outreach:[{date:'2026-12-18',purpose:'Spring'}]}];
+ const rows=context.prospectCampaigns(input,3,2,30),c=rows[0].campaigns[0];
+ assert.deepEqual(Array.from(c.dates),['2026-12-18','2027-01-04','2027-01-11']);
+ assert.equal(c.deadline,'2027-01-18');assert.equal(c.originalDates[1],'2026-12-25');
+ const events=context.executionEvents(rows);
+ for(const e of events.filter(e=>e.kind!=='signup'))for(const b of context.holidayBlockouts())assert(e.date<b.start||e.date>b.end);
+ assert.equal(events.filter(e=>e.kind==='email').length,3);
+ assert.equal(events.reduce((n,e)=>n+e.contacts,0),300);assert.equal(events.reduce((n,e)=>n+e.goal,0),45);
+ assert(events.find(e=>e.kind==='signup').warning);
+ assert.equal(context.nextOutreachDate('2026-11-23'),'2026-11-30');
+ assert.equal(context.nextOutreachDate('2027-01-03'),'2027-01-04');
+ assert.equal(context.nextOutreachDate('2027-01-04'),'2027-01-04');
 });

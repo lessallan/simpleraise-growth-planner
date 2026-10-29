@@ -39,3 +39,15 @@ Emails 2 and 3 go only to prospects who have not signed up, excluding opt-outs
 and pausing for replies. Follow-up recipient counts are intentionally not shown. Each campaign offers at least
 one proposed webinar every seven days from shortly after first outreach through
 the signup deadline. Session times and registration URLs are not yet confirmed.
+
+## Approved holiday blockouts
+
+Execution calendars block emails and webinars on November 23–29, 2026 and
+December 21, 2026–January 3, 2027. Both calendar views display the dates.
+Emails move forward to available weekdays with at least the configured spacing;
+original email and signup dates remain visible when changed. Signup targets retain
+the final-email buffer, even during blockouts, and show a warning when shifted.
+Webinars follow the revised first outreach date and weekly cadence, skipping
+blocked weeks. These dates do not recur automatically in subsequent years.
+Staffing estimates remain a separate model and do not reflect holiday shifts.
+This is a planning calendar, not a connected sending or webinar booking system.
